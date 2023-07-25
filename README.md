@@ -1,7 +1,8 @@
 # Chubby Bird
 Size-Changing Platformer
 
-Todo:
+## Todo:
+
 A progress bar that shows how close the bird is to next size change.
 
 Different physics (mass, gravity, jumping power, etc) for different sizes.
