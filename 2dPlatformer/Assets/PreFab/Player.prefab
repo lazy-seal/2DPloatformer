@@ -138,6 +138,7 @@ MonoBehaviour:
   horizontalDampingWhenTurning: 0.959
   horizontalDampingWhenStopping: 0.959
   horizontalDampingBasic: 0.59
+  horizontalAcceleration: 5
 --- !u!61 &7905957783637107303
 BoxCollider2D:
   m_ObjectHideFlags: 0
@@ -278,7 +279,7 @@ BoxCollider2D:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6163490152834503624}
-  m_Enabled: 1
+  m_Enabled: 0
   m_Density: 1
   m_Material: {fileID: 0}
   m_IncludeLayers:
@@ -314,5 +315,5 @@ BoxCollider2D:
     adaptiveTiling: 0
   m_AutoTiling: 0
   serializedVersion: 2
-  m_Size: {x: 3.73, y: 0.91}
+  m_Size: {x: 3.6, y: 0.91}
   m_EdgeRadius: 0

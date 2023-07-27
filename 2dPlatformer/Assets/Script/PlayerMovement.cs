@@ -12,19 +12,41 @@ public class PlayerMovement : MonoBehaviour
     private float playerGroundedRemember = .2f;
     private float playerGroundedRememberTime = .05f;
 
-    private float jumpingPower = 15f;
 
 
-    private float moveTimer = 0f;
+    private float moveTimer = -1.5f;
+    private int sizeLevelIndex = 0;
+    private float timeThreshold = 1.5f;
+
+    /*    private float maxSize = 1f;
+        private float minSize = .25f;*/
     private float maxSize = 1f;
     private float minSize = .25f;
-    private int sizeLevelIndex = 0;
-    private float timeThreshold = 2f;
 
-    // private List<float> sizeLevels = new List<float> { 1f, .3f, .3f };
-    private List<float> sizeLevels = new List<float>{1f, .5f, .25f}; // Different Sizes in which the bird can be changed.
-    // private List<float> jumpingLevels = new List<float> {12f,  15f};
-    private List<float> gravityLevels = new List<float> { 5f, 4f, 3.8f };
+
+
+    // movement acceleration & decceleration
+/*    [SerializeField][Range(0, 1)] 
+    private float horizontalDampingWhenTurning = .8f;
+    [SerializeField][Range(0, 1)] 
+    private float horizontalDampingWhenStopping = .8f;
+    [SerializeField][Range(0, 1)] 
+    private float horizontalDampingBasic = .4f;
+    [SerializeField] [Range(0, 5)]
+    private float horizontalAcceleration = 1.5f;
+    [SerializeField] [Range(1, 30)]
+    private float jumpingPower = 15f;*/
+    // private List<float> sizeLevels = new List<float> { 1f, .25f, .25f };
+    // private List<float> gravityLevels = new List<float> { 6f, 6f, 6f };
+    private List<float> jumpDampingLevels = new List<float> {.3f, .3f, .7f};
+    private List<float> sizeLevels = new List<float>{1f, .55f, .25f};   // Different Sizes in which the bird can be changed.
+    private List<float> jumpPowerLevels = new List<float> {13f,  19.8f, 14.5f};
+    private List<float> gravityLevels = new List<float> { 6f, 6f, 2f };
+    private List<float> horizontalDampingWhenTurningLevels = new List<float> { .985f, .98f, .6f };
+    private List<float> horizontalDampingWhenStoppingLevels = new List<float> { .985f, .95f, .5f };
+    private List<float> horizontalDampingBasicLevels = new List<float> { .6f, .7f, .2f };
+    private List<float> horizontalAccelerationLevels = new List<float> { .8f, 2.5f, .55f };
+
     private int numberOfLevels = 3;
 
     private bool isFacingRight = true;
@@ -36,15 +58,6 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private Transform groundCheck;
     [SerializeField] private LayerMask groundLayer;
 
-    // movement acceleration & decceleration
-    //[SerializeField][Range(0, 1)] 
-    private float horizontalDampingWhenTurning = .96f;
-    //[SerializeField][Range(0, 1)] 
-    private float horizontalDampingWhenStopping = .96f;
-    // [SerializeField][Range(0, 1)] 
-    private float horizontalDampingBasic = .59f;
-    // [SerializeField] [Range(1, 2)]
-    private float horizontalAcceleration = 1.55f;
 
 
     // Start is called before the first frame update
@@ -79,7 +92,7 @@ public class PlayerMovement : MonoBehaviour
             if (jumpPressedRemember > 0)
             {
                 jumping = true;
-                rb.velocity = new Vector2(rb.velocity.x, jumpingPower);
+                rb.velocity = new Vector2(rb.velocity.x, jumpPowerLevels[sizeLevelIndex]);
                 jumpPressedRemember = 0;
                 playerGroundedRemember = 0;
             }
@@ -98,7 +111,7 @@ public class PlayerMovement : MonoBehaviour
             {
                 jumping = false;
                 if (rb.velocity.y > 0f)
-                    rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y * .3f);
+                    rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y * jumpDampingLevels[sizeLevelIndex]);
             }
         }
 
@@ -120,14 +133,14 @@ public class PlayerMovement : MonoBehaviour
         // moving left and right
         float horizontalVelocity = rb.velocity.x;
         float horizontal = Input.GetAxisRaw("Horizontal");
-        horizontalVelocity += (horizontal * horizontalAcceleration);
+        horizontalVelocity += (horizontal * horizontalAccelerationLevels[sizeLevelIndex]);
 
         if (Math.Abs(horizontal) < 0.01f)
-            horizontalVelocity *= Mathf.Pow(1f - horizontalDampingWhenStopping, Time.deltaTime * 10f);
+            horizontalVelocity *= Mathf.Pow(1f - horizontalDampingWhenStoppingLevels[sizeLevelIndex], Time.deltaTime * 10f);
         else if (Mathf.Sign(horizontal) != Mathf.Sign(horizontalVelocity))
-            horizontalVelocity *= Mathf.Pow(1f - horizontalDampingWhenTurning, Time.deltaTime * 10f);
+            horizontalVelocity *= Mathf.Pow(1f - horizontalDampingWhenTurningLevels[sizeLevelIndex], Time.deltaTime * 10f);
         else
-            horizontalVelocity *= Mathf.Pow(1f - horizontalDampingBasic, Time.deltaTime * 10f);
+            horizontalVelocity *= Mathf.Pow(1f - horizontalDampingBasicLevels[sizeLevelIndex], Time.deltaTime * 10f);
 
         // actual moving
         rb.velocity = new Vector2(horizontalVelocity, rb.velocity.y);
