@@ -5,26 +5,46 @@ using System;
 
 public class PlayerMovement : MonoBehaviour
 {
-    private float horizontal;
-    private float speed = 8f;
-    private float jumpingPower = 16f;
+    private Animator animator;
+
+    private float jumpRememberTime = .1f;
+    private float jumpPressedRemember = .2f;
+    private float playerGroundedRemember = .2f;
+    private float playerGroundedRememberTime = .05f;
+
+    private float jumpingPower = 15f;
+
+
     private float moveTimer = 0f;
     private float maxSize = 1f;
-    private float minSize = .3f;
+    private float minSize = .25f;
     private int sizeLevelIndex = 0;
-    private float timeThreshold = 1f;
-    private Animator animator;
-    private List<float> sizeLevels = new List<float>{1f, .6f, .3f}; // Different Sizes in which the bird can be changed.
+    private float timeThreshold = 2f;
+
+    // private List<float> sizeLevels = new List<float> { 1f, .3f, .3f };
+    private List<float> sizeLevels = new List<float>{1f, .5f, .25f}; // Different Sizes in which the bird can be changed.
+    // private List<float> jumpingLevels = new List<float> {12f,  15f};
+    private List<float> gravityLevels = new List<float> { 5f, 4f, 3.8f };
     private int numberOfLevels = 3;
 
     private bool isFacingRight = true;
     private bool canBeSmaller = true;
-    private bool canBeLarger = true;
+    private bool canBeLarger = false;
 
     [SerializeField] private Rigidbody2D rb;
     [SerializeField] private BoxCollider2D boxCollider; // this is not the player collider. It is the GroundeCheck Collider.
     [SerializeField] private Transform groundCheck;
     [SerializeField] private LayerMask groundLayer;
+
+    // movement acceleration & decceleration
+    //[SerializeField][Range(0, 1)] 
+    private float horizontalDampingWhenTurning = .96f;
+    //[SerializeField][Range(0, 1)] 
+    private float horizontalDampingWhenStopping = .96f;
+    // [SerializeField][Range(0, 1)] 
+    private float horizontalDampingBasic = .59f;
+    // [SerializeField] [Range(1, 2)]
+    private float horizontalAcceleration = 1.55f;
 
 
     // Start is called before the first frame update
@@ -33,26 +53,43 @@ public class PlayerMovement : MonoBehaviour
         animator = gameObject.GetComponent<Animator>();
     }
 
-    // Update is called once per frame
+
     void Update()
     {
 
         bool grounded = IsGrounded();
         bool falling = rb.velocity.y < 0;
         bool jumping = false;
+        
+        
+        
+        playerGroundedRemember = grounded ? playerGroundedRememberTime : playerGroundedRemember;
 
-        if (grounded)
+        // subtracting jump pressed timer for jump buffering
+        jumpPressedRemember -= jumpPressedRemember >= 0 ? Time.deltaTime : 0;
+
+        if (Input.GetButtonDown("Jump"))
+        {
+            jumpPressedRemember = jumpRememberTime;
+        }
+
+        if (playerGroundedRemember > 0) // was ground within playerGroundedRememberTime seconds
         {
             falling = false;
-
-            if (Input.GetButtonDown("Jump"))
+            if (jumpPressedRemember > 0)
             {
                 jumping = true;
                 rb.velocity = new Vector2(rb.velocity.x, jumpingPower);
+                jumpPressedRemember = 0;
+                playerGroundedRemember = 0;
             }
         }
-        else // not grounded
+
+        if (!grounded) // not grounded
         {
+            // subtracting ground timer for coyote time
+            playerGroundedRemember -= playerGroundedRemember >= 0 ? Time.deltaTime : 0;
+
             if (falling)
                 jumping = false;
 
@@ -61,60 +98,97 @@ public class PlayerMovement : MonoBehaviour
             {
                 jumping = false;
                 if (rb.velocity.y > 0f)
-                    rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y * .8f);
+                    rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y * .3f);
             }
         }
+
+        
+
 
         animator.SetBool("IsGrounded", grounded);
         animator.SetBool("IsFalling", falling);
         animator.SetBool("IsJumping", jumping);
 
-        horizontal = Input.GetAxisRaw("Horizontal");
-        Flip();
+
+        // flipping right and left depending on wich direction the bird is looking at
+        Flip(Input.GetAxisRaw("Horizontal"));
 
     }
 
-    private void FixedUpdate()
+    void FixedUpdate()
     {
-        // Checks if player is moving or not, and updates Timer
-        if (rb.velocity != Vector2.zero)
-            moveTimer += Time.deltaTime;
+        // moving left and right
+        float horizontalVelocity = rb.velocity.x;
+        float horizontal = Input.GetAxisRaw("Horizontal");
+        horizontalVelocity += (horizontal * horizontalAcceleration);
+
+        if (Math.Abs(horizontal) < 0.01f)
+            horizontalVelocity *= Mathf.Pow(1f - horizontalDampingWhenStopping, Time.deltaTime * 10f);
+        else if (Mathf.Sign(horizontal) != Mathf.Sign(horizontalVelocity))
+            horizontalVelocity *= Mathf.Pow(1f - horizontalDampingWhenTurning, Time.deltaTime * 10f);
         else
-            moveTimer -= moveTimer >= -1 ? Time.deltaTime : 0;
+            horizontalVelocity *= Mathf.Pow(1f - horizontalDampingBasic, Time.deltaTime * 10f);
 
-        MovePlayer();
+        // actual moving
+        rb.velocity = new Vector2(horizontalVelocity, rb.velocity.y);
+        
+        // Checks if player is moving or not, and updates Timer
+        if (rb.velocity != Vector2.zero && Mathf.Abs(rb.velocity.x) > .3)
+            moveTimer += moveTimer <= timeThreshold ? Time.deltaTime : 0;
+        else
+            moveTimer -= moveTimer >= timeThreshold * -1 ? Time.deltaTime : 0;
+        // Debug.Log(moveTimer);
+        // size modification
+        UpdateSize();
     }
 
-    private void MovePlayer()
-    {
-        // moves player by adjustin velocity
-        rb.velocity = new Vector2(horizontal * speed, rb.velocity.y);
+    
 
+    private void UpdateSize()
+    {
         // Increase the size
         if (rb.velocity == Vector2.zero && moveTimer <= timeThreshold * -1) 
         {
             sizeLevelIndex -= sizeLevelIndex > 0 ? 1 : 0;
-            //Debug.Log("L Called");
             if (canBeLarger)
                 {
-                    IncreaseSizeOverTime();
+                    ChangePlayerSize(true);
+                    moveTimer = 0f;
                 }
 
-            moveTimer = 0f;
             }
 
         // Decrease the size
-        else if (rb.velocity != Vector2.zero && moveTimer >= timeThreshold) // Decrease the size
+        else if (rb.velocity != Vector2.zero && moveTimer >= timeThreshold)
         {
             sizeLevelIndex += sizeLevelIndex < numberOfLevels - 1 ? 1 : 0;
-            //Debug.Log("S Called");
             if (canBeSmaller)
             {
-                DecreaseSizeOverTime();
+                ChangePlayerSize(false);
+                moveTimer = 0f;
             }
 
-            moveTimer = 0f;
         }
+    }
+
+    private void ChangePlayerSize(bool increase)
+    {
+        float targetSize = sizeLevels[sizeLevelIndex];
+
+        if (increase)
+        {
+            IncreaseSizeOverTime(targetSize);
+            rb.gravityScale = gravityLevels[sizeLevelIndex];
+
+        }
+        else // decrease
+        {
+            DecreaseSizeOverTime(targetSize);
+            rb.gravityScale = gravityLevels[sizeLevelIndex];
+        }
+
+
+
     }
 
     private bool IsGrounded()
@@ -122,7 +196,7 @@ public class PlayerMovement : MonoBehaviour
         return Physics2D.OverlapBox(groundCheck.position, new Vector2(boxCollider.size.x * sizeLevels[sizeLevelIndex], boxCollider.size.y * sizeLevels[sizeLevelIndex]), 0, groundLayer);
     }
 
-    private void Flip()
+    private void Flip(float horizontal)
     {
         // Flips entire character
         if (isFacingRight && horizontal < 0f || !isFacingRight && horizontal > 0f)
@@ -134,9 +208,8 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    private void DecreaseSizeOverTime()
+    private void DecreaseSizeOverTime(float targetSize)
     {
-        float targetSize = sizeLevels[sizeLevelIndex];
 
         // Debug.Log("S: " + targetSize);
 
@@ -151,9 +224,8 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    private void IncreaseSizeOverTime()
+    private void IncreaseSizeOverTime(float targetSize)
     {
-        float targetSize = sizeLevels[sizeLevelIndex];
 
         // Debug.Log("I: " + targetSize);
 
@@ -167,4 +239,5 @@ public class PlayerMovement : MonoBehaviour
             canBeSmaller = true;
         }
     }
+
 }
