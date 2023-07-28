@@ -15,6 +15,7 @@ public class PlayerMovement : MonoBehaviour
 
 
     private float moveTimer = -1.5f;
+    public float GetMoveTime () { return moveTimer; }
     private int sizeLevelIndex = 0;
     private float timeThreshold = 1.5f;
 
@@ -39,13 +40,13 @@ public class PlayerMovement : MonoBehaviour
     // private List<float> sizeLevels = new List<float> { 1f, .25f, .25f };
     // private List<float> gravityLevels = new List<float> { 6f, 6f, 6f };
     private List<float> jumpDampingLevels = new List<float> {.3f, .3f, .7f};
-    private List<float> sizeLevels = new List<float>{1f, .55f, .25f};   // Different Sizes in which the bird can be changed.
-    private List<float> jumpPowerLevels = new List<float> {13f,  19.8f, 14.5f};
-    private List<float> gravityLevels = new List<float> { 6f, 6f, 2f };
-    private List<float> horizontalDampingWhenTurningLevels = new List<float> { .985f, .98f, .6f };
-    private List<float> horizontalDampingWhenStoppingLevels = new List<float> { .985f, .95f, .5f };
-    private List<float> horizontalDampingBasicLevels = new List<float> { .6f, .7f, .2f };
-    private List<float> horizontalAccelerationLevels = new List<float> { .8f, 2.5f, .55f };
+    private List<float> sizeLevels = new List<float>{1f, .5f, .25f};   // Different Sizes in which the bird can be changed.
+    private List<float> jumpPowerLevels = new List<float> {15f,  19.8f, 0f};
+    private List<float> gravityLevels = new List<float> { 6.3f, 6f, 2f };
+    private List<float> horizontalDampingWhenTurningLevels = new List<float> { .985f, .98f, .8f };
+    private List<float> horizontalDampingWhenStoppingLevels = new List<float> { .985f, .95f, .8f };
+    private List<float> horizontalDampingBasicLevels = new List<float> { .6f, .7f, .6f };
+    private List<float> horizontalAccelerationLevels = new List<float> { 1.3f, 2.5f, 3.5f };
 
     private int numberOfLevels = 3;
 
@@ -120,6 +121,8 @@ public class PlayerMovement : MonoBehaviour
 
         animator.SetBool("IsGrounded", grounded);
         animator.SetBool("IsFalling", falling);
+        // jumping = sizeLevelIndex == numberOfLevels - 1 ? false : jumping; This line was to disable jumping motion when player can't jump 
+        // (smallest size), but then I realized having jumping motion without actually jumping is a good way to tell player that the character can't jump.
         animator.SetBool("IsJumping", jumping);
 
 
@@ -138,15 +141,17 @@ public class PlayerMovement : MonoBehaviour
         if (Math.Abs(horizontal) < 0.01f)
             horizontalVelocity *= Mathf.Pow(1f - horizontalDampingWhenStoppingLevels[sizeLevelIndex], Time.deltaTime * 10f);
         else if (Mathf.Sign(horizontal) != Mathf.Sign(horizontalVelocity))
+        {
             horizontalVelocity *= Mathf.Pow(1f - horizontalDampingWhenTurningLevels[sizeLevelIndex], Time.deltaTime * 10f);
+        }
         else
             horizontalVelocity *= Mathf.Pow(1f - horizontalDampingBasicLevels[sizeLevelIndex], Time.deltaTime * 10f);
 
         // actual moving
         rb.velocity = new Vector2(horizontalVelocity, rb.velocity.y);
         
-        // Checks if player is moving or not, and updates Timer
-        if (rb.velocity != Vector2.zero && Mathf.Abs(rb.velocity.x) > .3)
+        // Checks if player is moving or not, and updates Timer accordingly
+        if (Mathf.Abs(rb.velocity.x) > .3f || rb.velocity.y > .3f)
             moveTimer += moveTimer <= timeThreshold ? Time.deltaTime : 0;
         else
             moveTimer -= moveTimer >= timeThreshold * -1 ? Time.deltaTime : 0;
@@ -160,9 +165,9 @@ public class PlayerMovement : MonoBehaviour
     private void UpdateSize()
     {
         // Increase the size
-        if (rb.velocity == Vector2.zero && moveTimer <= timeThreshold * -1) 
+        if (moveTimer <= timeThreshold * -1 && sizeLevelIndex > 0) 
         {
-            sizeLevelIndex -= sizeLevelIndex > 0 ? 1 : 0;
+            sizeLevelIndex -= 1;
             if (canBeLarger)
                 {
                     ChangePlayerSize(true);
@@ -172,9 +177,9 @@ public class PlayerMovement : MonoBehaviour
             }
 
         // Decrease the size
-        else if (rb.velocity != Vector2.zero && moveTimer >= timeThreshold)
+        else if (moveTimer >= timeThreshold && sizeLevelIndex < numberOfLevels - 1)
         {
-            sizeLevelIndex += sizeLevelIndex < numberOfLevels - 1 ? 1 : 0;
+            sizeLevelIndex += 1;
             if (canBeSmaller)
             {
                 ChangePlayerSize(false);
@@ -198,6 +203,10 @@ public class PlayerMovement : MonoBehaviour
         {
             DecreaseSizeOverTime(targetSize);
             rb.gravityScale = gravityLevels[sizeLevelIndex];
+            if (sizeLevelIndex == numberOfLevels - 1 && rb.velocity.y > 0)
+            {
+                rb.velocity = new Vector2(rb.velocity.x, .05f);
+            }
         }
 
 
